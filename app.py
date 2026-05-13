@@ -94,17 +94,23 @@ def get_db_connection():
     return psycopg2.connect(**DB_CONFIG)
 
 
-def run_sql_script(script_file: str, date_from: str, date_to: str):
+def run_sql_script(script_file: str, date_from: str, date_to: str,
+                   use_time: bool = True, time_from: str = "00:00:00", time_to: str = "23:59:59"):
     sql_path = SQL_DIR / script_file
     if not sql_path.exists():
         raise FileNotFoundError(f"Script not found: {script_file}")
 
     sql = sql_path.read_text(encoding="utf-8")
 
-    d_from   = datetime.strptime(date_from, "%Y-%m-%d")
-    d_to     = datetime.strptime(date_to,   "%Y-%m-%d")
-    fmt_from = d_from.strftime("%d.%m.%Y") + " 00:00:00"
-    fmt_to   = d_to.strftime("%d.%m.%Y")   + " 23:59:59"
+    d_from = datetime.strptime(date_from, "%Y-%m-%d")
+    d_to   = datetime.strptime(date_to,   "%Y-%m-%d")
+
+    if use_time:
+        fmt_from = d_from.strftime("%d.%m.%Y") + f" {time_from}"
+        fmt_to   = d_to.strftime("%d.%m.%Y")   + f" {time_to}"
+    else:
+        fmt_from = d_from.strftime("%d.%m.%Y")
+        fmt_to   = d_to.strftime("%d.%m.%Y")
 
     sql = sql.replace(":date_from", f"'{fmt_from}'")
     sql = sql.replace(":date_to",   f"'{fmt_to}'"  )
@@ -240,6 +246,9 @@ def api_generate():
     date_from  = data.get("date_from", "")
     date_to    = data.get("date_to", "")
     styled     = bool(data.get("styled", False))
+    use_time   = bool(data.get("use_time", True))
+    time_from  = data.get("time_from", "00:00:00")
+    time_to    = data.get("time_to",   "23:59:59")
 
     if not script_ids:
         return jsonify({"error": "Не выбрано ни одного скрипта"}), 400
@@ -269,7 +278,9 @@ def api_generate():
     for script in selected:
         sid = script["id"]
         try:
-            cols, rows = run_sql_script(script["file"], date_from, date_to)
+            cols, rows = run_sql_script(script["file"], date_from, date_to,
+                                               use_time=use_time,
+                                               time_from=time_from, time_to=time_to)
             if rows:
                 results[sid] = (script["name"], cols, rows)
             else:

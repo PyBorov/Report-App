@@ -188,6 +188,25 @@
     color-scheme: dark;
   }
   .field input[type=date]:focus { border-color: var(--accent); }
+  .field input[type=time] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+    color-scheme: dark;
+  }
+  .field input[type=time]:focus { border-color: var(--accent); }
+  .field input[type=time]:disabled {
+    opacity: .35; cursor: not-allowed;
+  }
+  #time-fields { transition: opacity .2s; }
+  #time-fields.disabled { opacity: .4; pointer-events: none; }
 
   .range-info {
     font-size: 12px; color: var(--text-muted);
@@ -418,6 +437,37 @@
     </div>
   </div>
 
+  <!-- Time range card -->
+  <div class="card" id="time-card">
+    <div class="card-header">
+      <span class="icon">🕐</span>
+      <h2>Привязка по времени</h2>
+      <label for="use-time-toggle" style="margin-left:auto;display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+        <span style="font-size:12px;color:var(--text-muted)" id="use-time-label">включено</span>
+        <input type="checkbox" id="use-time-toggle" style="display:none" checked>
+        <div class="toggle-track on" id="use-time-visual">
+          <div class="toggle-thumb"></div>
+        </div>
+      </label>
+    </div>
+    <div class="card-body" id="time-fields">
+      <div class="date-row">
+        <div class="field">
+          <label>Начало дня</label>
+          <input type="time" id="time-from" value="00:00" step="1">
+        </div>
+        <div class="field">
+          <label>Конец дня</label>
+          <input type="time" id="time-to" value="23:59" step="1">
+        </div>
+        <div class="field">
+          <label>Формат в SQL</label>
+          <div class="range-info ok" id="time-preview">00:00:00 — 23:59:59</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Styled toggle -->
   <div class="card">
     <div class="card-body" style="padding:14px 20px">
@@ -559,7 +609,7 @@ async function generate() {
     const res = await fetch('/api/generate', {
       method:  'POST',
       headers: {'Content-Type': 'application/json'},
-      body:    JSON.stringify({ scripts, date_from: dateFrom, date_to: dateTo, styled: isStyled() })
+      body:    JSON.stringify({ scripts, date_from: dateFrom, date_to: dateTo, styled: isStyled(), ...getTimeParams() })
     });
 
     clearInterval(ticker);
@@ -651,6 +701,45 @@ function showToast(type, title, msg, duration = (type === 'warning' ? null : typ
 }
 
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Time toggle ────────────────────────────────────────────────────────────────
+document.getElementById('use-time-toggle').addEventListener('change', function () {
+  const on = this.checked;
+  document.getElementById('use-time-visual').classList.toggle('on', on);
+  document.getElementById('use-time-label').textContent = on ? 'включено' : 'выключено';
+  document.getElementById('time-fields').classList.toggle('disabled', !on);
+  updateTimePreview();
+});
+
+document.getElementById('time-from').addEventListener('input', updateTimePreview);
+document.getElementById('time-to').addEventListener('input', updateTimePreview);
+
+function updateTimePreview() {
+  const on  = document.getElementById('use-time-toggle').checked;
+  const tf  = document.getElementById('time-from').value || '00:00';
+  const tt  = document.getElementById('time-to').value   || '23:59';
+  const box = document.getElementById('time-preview');
+  if (!on) {
+    box.textContent  = 'без времени';
+    box.className    = 'range-info';
+    return;
+  }
+  // Pad seconds if missing (time input gives HH:MM, we need HH:MM:SS)
+  const pad = t => t.length === 5 ? t + ':00' : t;
+  box.textContent = `${pad(tf)} — ${pad(tt)}`;
+  box.className   = 'range-info ok';
+}
+
+function getTimeParams() {
+  const use = document.getElementById('use-time-toggle').checked;
+  if (!use) return { use_time: false, time_from: '', time_to: '' };
+  const pad = t => t.length === 5 ? t + ':00' : t;
+  return {
+    use_time:  true,
+    time_from: pad(document.getElementById('time-from').value || '00:00'),
+    time_to:   pad(document.getElementById('time-to').value   || '23:59'),
+  };
+}
 
 document.getElementById('styled-toggle').addEventListener('change', function () {
   document.getElementById('toggle-visual').classList.toggle('on', this.checked);
