@@ -15,6 +15,7 @@ report_app/
 │   └── sales_report.sql      # Пример скрипта
 └── templates/
     └── index.html            # Фронтенд
+    └── login.html            # Страница авторизации
 ```
 
 ## Быстрый старт
