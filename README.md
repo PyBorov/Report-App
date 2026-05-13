@@ -74,8 +74,6 @@ WHERE created_at::date BETWEEN :date_from AND :date_to;
 |---|---|
 | `:date_from` | `'2024-01-01'` |
 | `:date_to` | `'2024-01-31'` |
-| `%(date_from)s` | `'2024-01-01'` |
-| `%(date_to)s` | `'2024-01-31'` |
 
 ## Переменные окружения
 
