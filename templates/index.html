@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Report Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0d1117;
+    --surface:     #161b22;
+    --surface2:    #1c2333;
+    --border:      #30363d;
+    --border-acc:  #1e3a5f;
+    --accent:      #2d7dd2;
+    --accent-glow: rgba(45,125,210,.25);
+    --accent2:     #58a6ff;
+    --success:     #3fb950;
+    --warn:        #d29922;
+    --danger:      #f85149;
+    --text:        #e6edf3;
+    --text-muted:  #8b949e;
+    --text-dim:    #4d5566;
+    --radius:      10px;
+    --shadow:      0 8px 32px rgba(0,0,0,.5);
+  }
+
+  body {
+    font-family: 'Onest', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 80px;
+  }
+
+  /* ── Grid noise texture ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(30,58,95,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,58,95,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 820px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 4px;
+  }
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), #1a5fa8);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+  header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.3px; }
+  header p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .card-header .icon { font-size: 16px; }
+  .card-header h2 { font-size: 14px; font-weight: 600; color: var(--text); }
+  .card-header .badge {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: var(--accent2);
+    transition: all .2s;
+  }
+  .card-body { padding: 20px; }
+
+  /* ── Script grid ── */
+  .script-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .script-item {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 14px 14px 44px;
+    cursor: pointer;
+    transition: border-color .2s, background .2s, transform .15s;
+    user-select: none;
+    background: var(--surface2);
+  }
+  .script-item:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .script-item.selected {
+    border-color: var(--accent);
+    background: rgba(45,125,210,.1);
+    box-shadow: 0 0 0 1px var(--accent) inset;
+  }
+  .script-item input[type=checkbox] {
+    position: absolute; left: 14px; top: 16px;
+    width: 16px; height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  .script-item .s-name {
+    font-size: 13px; font-weight: 600; line-height: 1.3;
+    margin-bottom: 4px;
+  }
+  .script-item .s-desc {
+    font-size: 11px; color: var(--text-muted); line-height: 1.4;
+  }
+  .script-item .s-file {
+    margin-top: 6px;
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    color: var(--text-dim);
+  }
+  .check-icon {
+    position: absolute; right: 10px; top: 10px;
+    font-size: 14px; opacity: 0;
+    transition: opacity .2s;
+    color: var(--accent2);
+  }
+  .script-item.selected .check-icon { opacity: 1; }
+
+  /* Select all */
+  .select-all-row {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 14px;
+    font-size: 13px; color: var(--text-muted);
+    cursor: pointer;
+  }
+  .select-all-row input { accent-color: var(--accent); cursor: pointer; }
+
+  /* ── Date row ── */
+  .date-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  @media (max-width: 560px) { .date-row { grid-template-columns: 1fr 1fr; } }
+  .field label {
+    display: block;
+    font-size: 12px; font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+  .field input[type=date] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .2s;
+    color-scheme: dark;
+  }
+  .field input[type=date]:focus { border-color: var(--accent); }
+
+  .range-info {
+    font-size: 12px; color: var(--text-muted);
+    padding: 8px 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    transition: color .2s, border-color .2s;
+  }
+  .range-info.warn   { color: var(--warn);   border-color: var(--warn); }
+  .range-info.danger { color: var(--danger); border-color: var(--danger); }
+  .range-info.ok     { color: var(--success); border-color: var(--success); }
+
+  /* ── Submit button ── */
+  .btn-generate {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, var(--accent), #1a5fa8);
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-family: 'Onest', sans-serif;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: opacity .2s, transform .15s, box-shadow .2s;
+    box-shadow: 0 4px 20px var(--accent-glow);
+  }
+  .btn-generate:hover:not(:disabled) {
+    opacity: .9; transform: translateY(-1px);
+    box-shadow: 0 6px 28px var(--accent-glow);
+  }
+  .btn-generate:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+  .btn-generate .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    display: none;
+    animation: spin .7s linear infinite;
+  }
+  .btn-generate.loading .spinner { display: block; }
+  .btn-generate.loading .btn-text { opacity: .7; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed; bottom: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 10px;
+    z-index: 9999;
+  }
+  .toast {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    min-width: 280px; max-width: 420px;
+    box-shadow: var(--shadow);
+    animation: slideIn .3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .toast::after {
+    content: '';
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    animation: shrink linear forwards;
+  }
+  .toast.success { border-color: var(--success); }
+  .toast.success::after { background: var(--success); animation-duration: 5s; }
+  .toast.warning { border-color: var(--warn); }
+  .toast.warning::after { display: none; }  /* закрывается вручную */
+  .toast.error   { border-color: var(--danger); }
+  .toast.error::after   { background: var(--danger); animation-duration: 7s; }
+  .toast.info    { border-color: var(--accent); }
+  .toast.info::after    { background: var(--accent); animation-duration: 5s; }
+
+  .toast-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .toast-body .toast-title { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .toast-body .toast-msg   { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+  .toast-close {
+    margin-left: auto; flex-shrink: 0;
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; line-height: 1;
+    padding: 0 2px;
+  }
+  .toast-close:hover { color: var(--text); }
+
+  @keyframes slideIn {
+    from { transform: translateX(110%); opacity: 0; }
+    to   { transform: translateX(0);    opacity: 1; }
+  }
+  @keyframes shrink {
+    from { width: 100%; }
+    to   { width: 0; }
+  }
+
+  /* ── Progress bar ── */
+  .progress-bar {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+    margin-top: -12px;
+    margin-bottom: 4px;
+  }
+  .progress-bar.active { display: block; }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    width: 0%;
+    transition: width .4s ease;
+    animation: pulse-bar 1.5s ease-in-out infinite;
+  }
+  /* ── Toggle switch ── */
+  .toggle-track {
+    width: 40px; height: 22px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    position: relative;
+    transition: background .2s, border-color .2s;
+    flex-shrink: 0;
+  }
+  .toggle-thumb {
+    width: 16px; height: 16px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    position: absolute;
+    top: 2px; left: 2px;
+    transition: transform .2s, background .2s;
+  }
+  .toggle-track.on {
+    background: var(--accent-glow);
+    border-color: var(--accent);
+  }
+  .toggle-track.on .toggle-thumb {
+    background: var(--accent2);
+    transform: translateX(18px);
+  }
+
+  @keyframes pulse-bar {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .6; }
+  }
+
+  /* ── Footer ── */
+  footer {
+    font-size: 12px; color: var(--text-dim);
+    text-align: center;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <header>
+    <div class="logo">📊</div>
+    <div>
+      <h1>Report Generator</h1>
+      <p>Выгрузка данных из PostgreSQL в Excel</p>
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <span style="font-size:13px;color:var(--text-muted)">{{ username }}</span>
+      <a href="/logout" style="font-size:12px;color:var(--text-muted);text-decoration:none;
+         border:1px solid var(--border);border-radius:6px;padding:5px 12px;
+         transition:border-color .2s,color .2s"
+         onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'"
+         onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)'">
+        Выйти
+      </a>
+    </div>
+  </header>
+
+  <!-- Scripts card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📋</span>
+      <h2>Выберите отчёты</h2>
+      <span class="badge" id="selected-count">0 выбрано</span>
+    </div>
+    <div class="card-body">
+      <label class="select-all-row">
+        <input type="checkbox" id="select-all"> Выбрать все
+      </label>
+      <div class="script-grid" id="script-grid">
+        {% for s in scripts %}
+        <div class="script-item" data-id="{{ s.id }}" onclick="toggleScript(this)">
+          <input type="checkbox" value="{{ s.id }}" onclick="event.stopPropagation(); toggleScript(this.parentElement)">
+          <div class="s-name">{{ s.name }}</div>
+          {% if s.description %}
+          <div class="s-desc">{{ s.description }}</div>
+          {% endif %}
+          <div class="s-file">{{ s.file }}</div>
+          <span class="check-icon">✓</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Dates card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📅</span>
+      <h2>Диапазон дат</h2>
+    </div>
+    <div class="card-body">
+      <div class="date-row">
+        <div class="field">
+          <label>Дата начала</label>
+          <input type="date" id="date-from" onchange="updateRange()">
+        </div>
+        <div class="field">
+          <label>Дата окончания</label>
+          <input type="date" id="date-to" onchange="updateRange()">
+        </div>
+        <div class="field">
+          <label>Диапазон</label>
+          <div class="range-info" id="range-info">— дней</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Styled toggle -->
+  <div class="card">
+    <div class="card-body" style="padding:14px 20px">
+      <label for="styled-toggle" style="display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none">
+        <input type="checkbox" id="styled-toggle" style="display:none">
+        <div class="toggle-track" id="toggle-visual">
+          <div class="toggle-thumb"></div>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Стили и заголовок в Excel</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">
+            Цветная шапка, чередование строк, заголовок с периодом
+          </div>
+        </div>
+      </label>
+    </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-bar" id="progress-bar">
+    <div class="progress-fill" id="progress-fill"></div>
+  </div>
+
+  <!-- Generate button -->
+  <button class="btn-generate" id="btn-generate" onclick="generate()" disabled>
+    <div class="spinner"></div>
+    <span class="btn-text">⬇ Сформировать отчёт</span>
+  </button>
+
+  <footer>Максимальный диапазон — 90 дней · Несколько отчётов объединяются в один файл по листам</footer>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const MAX_DAYS = 90;
+
+function getSelected() {
+  return [...document.querySelectorAll('.script-item.selected')]
+    .map(el => el.dataset.id);
+}
+
+function toggleScript(el) {
+  if (!el.classList.contains('script-item')) return;
+  el.classList.toggle('selected');
+  el.querySelector('input[type=checkbox]').checked = el.classList.contains('selected');
+  syncSelectAll();
+  updateBtn();
+}
+
+function syncSelectAll() {
+  const all  = document.querySelectorAll('.script-item');
+  const sel  = document.querySelectorAll('.script-item.selected');
+  const cb   = document.getElementById('select-all');
+  cb.indeterminate = sel.length > 0 && sel.length < all.length;
+  cb.checked = sel.length === all.length;
+  document.getElementById('selected-count').textContent = `${sel.length} выбрано`;
+}
+
+document.getElementById('select-all').addEventListener('change', function () {
+  document.querySelectorAll('.script-item').forEach(el => {
+    el.classList.toggle('selected', this.checked);
+    el.querySelector('input[type=checkbox]').checked = this.checked;
+  });
+  syncSelectAll();
+  updateBtn();
+});
+
+// ── Dates ──────────────────────────────────────────────────────────────────────
+(function initDates() {
+  const today  = new Date();
+  const from   = new Date(today); from.setDate(today.getDate() - 30);
+  document.getElementById('date-to').value   = fmtDate(today);
+  document.getElementById('date-from').value = fmtDate(from);
+  updateRange();
+})();
+
+function fmtDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function updateRange() {
+  const f = document.getElementById('date-from').value;
+  const t = document.getElementById('date-to').value;
+  const info = document.getElementById('range-info');
+  if (!f || !t) { info.textContent = '— дней'; info.className = 'range-info'; return; }
+  const days = Math.round((new Date(t) - new Date(f)) / 86400000) + 1; // включительно с обеих сторон
+  if (days < 0) {
+    info.textContent = 'Ошибка дат';
+    info.className = 'range-info danger';
+  } else if (days > MAX_DAYS) {
+    info.textContent = `${days} дней ✗`;
+    info.className = 'range-info danger';
+  } else {
+    info.textContent = `${days} ${pluralDays(days)}`;
+    info.className = 'range-info ok';
+  }
+  updateBtn();
+}
+
+function pluralDays(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return 'день';
+  if ([2,3,4].includes(n % 10) && ![12,13,14].includes(n % 100)) return 'дня';
+  return 'дней';
+}
+
+function updateBtn() {
+  const btn = document.getElementById('btn-generate');
+  const f = document.getElementById('date-from').value;
+  const t = document.getElementById('date-to').value;
+  const days = f && t ? Math.round((new Date(t) - new Date(f)) / 86400000) + 1 : -1;
+  const ok = getSelected().length > 0 && days >= 0 && days <= MAX_DAYS;
+  btn.disabled = !ok;
+}
+
+// ── Generate ───────────────────────────────────────────────────────────────────
+async function generate() {
+  const scripts  = getSelected();
+  const dateFrom = document.getElementById('date-from').value;
+  const dateTo   = document.getElementById('date-to').value;
+
+  const btn      = document.getElementById('btn-generate');
+  const progress = document.getElementById('progress-bar');
+  const fill     = document.getElementById('progress-fill');
+
+  btn.disabled = true;
+  btn.classList.add('loading');
+  progress.classList.add('active');
+
+  // Animate progress
+  let pct = 0;
+  const ticker = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 85);
+    fill.style.width = pct + '%';
+  }, 300);
+
+  try {
+    const res = await fetch('/api/generate', {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ scripts, date_from: dateFrom, date_to: dateTo, styled: isStyled() })
+    });
+
+    clearInterval(ticker);
+    fill.style.width = '100%';
+    await delay(300);
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      showToast('error', '✗ Ошибка', data.error || 'Неизвестная ошибка сервера');
+      return;
+    }
+
+    // Check for empty scripts header
+    const emptyHeader = res.headers.get('X-Empty-Scripts');
+    let emptyScripts = [];
+    if (emptyHeader) {
+      // base64 → Uint8Array → UTF-8 decode (atob alone breaks on cyrillic)
+      const bytes = Uint8Array.from(atob(emptyHeader), c => c.charCodeAt(0));
+      emptyScripts = JSON.parse(new TextDecoder().decode(bytes));
+    }
+
+    if (res.status === 200 && res.headers.get('Content-Type')?.includes('spreadsheetml')) {
+      // Download file
+      const blob = await res.blob();
+      const disp = res.headers.get('Content-Disposition') || '';
+      const nameMatch = disp.match(/filename\*?=['"]?([^'";\n]+)['"]?/);
+      const filename = nameMatch ? decodeURIComponent(nameMatch[1]) : 'report.xlsx';
+
+      const url = URL.createObjectURL(blob);
+      const a   = document.createElement('a');
+      a.href    = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      showToast('success', '✓ Готово', `Файл "${filename}" загружен`);
+
+      if (emptyScripts.length > 0) {
+        showToast(
+          'warning',
+          '⚠ Нет данных',
+          `Пустой результат по: ${emptyScripts.join(', ')}`
+        );
+      }
+    } else {
+      // JSON response (empty results)
+      const data = await res.json();
+      if (data.empty?.length) {
+        showToast(
+          'warning',
+          '⚠ Нет данных',
+          `Скрипты не вернули данных за указанный период:\n${data.empty.join(', ')}`
+        );
+      } else {
+        showToast('info', 'ℹ Результат', data.message || 'Нет данных');
+      }
+    }
+
+  } catch (err) {
+    clearInterval(ticker);
+    showToast('error', '✗ Сеть', 'Не удалось связаться с сервером: ' + err.message);
+  } finally {
+    await delay(400);
+    progress.classList.remove('active');
+    fill.style.width = '0%';
+    btn.classList.remove('loading');
+    updateBtn();
+  }
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────────
+function showToast(type, title, msg, duration = (type === 'warning' ? null : type === 'error' ? 7000 : 5000)) {
+  const container = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = {success:'✅', warning:'⚠️', error:'❌', info:'ℹ️'};
+  t.innerHTML = `
+    <div class="toast-icon">${icons[type]}</div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg.replace(/\n/g,'<br>')}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+  `;
+  t.style.setProperty('--dur', duration + 'ms');
+  t.querySelector('::after');
+  container.appendChild(t);
+  if (duration !== null) setTimeout(() => t.remove(), duration + 400);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+document.getElementById('styled-toggle').addEventListener('change', function () {
+  document.getElementById('toggle-visual').classList.toggle('on', this.checked);
+});
+
+function isStyled() {
+  return document.getElementById('styled-toggle').checked;
+}
+</script>
+</body>
+</html>

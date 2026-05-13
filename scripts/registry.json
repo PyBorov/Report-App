@@ -1,0 +1,26 @@
+[
+  {
+    "id":          "sales_report",
+    "name":        "Отчёт по продажам",
+    "description": "Детализация продаж по контрагентам и номенклатуре",
+    "file":        "sales_report.sql"
+  },
+  {
+    "id":          "payments_report",
+    "name":        "Отчёт по оплатам",
+    "description": "Входящие и исходящие платежи за период",
+    "file":        "payments_report.sql"
+  },
+  {
+    "id":          "stock_report",
+    "name":        "Остатки на складах",
+    "description": "Движение и остатки товаров на складах",
+    "file":        "stock_report.sql"
+  },
+  {
+    "id":          "clients_report",
+    "name":        "Активность клиентов",
+    "description": "Количество заказов и сумма по каждому клиенту",
+    "file":        "clients_report.sql"
+  }
+]
